@@ -65,8 +65,57 @@ Configure GitHub Pages:
 Your dApp will be live at https://jasbanza.github.io/cosmosmillions-rescue
 
 ```mermaid
+flowchart TD
+    subgraph "Build Process"
+        direction TB
+        Clean["Clean Phase"] --> Parallel["Parallel Build"]
+        
+        subgraph "Parallel Tasks"
+            direction TB
+            HTML["HTML Build"]
+            JS["JS Bundle"]
+            SW["Service Worker"]
+            CSS["CSS Build"]
+            IMG["Images"]
+            JSON["JSON"]
+        end
+        
+        Parallel --> Deploy["Deploy Phase"]
+        
+        subgraph "Deployment"
+            direction TB
+            Dist["dist/"]
+            Docs["docs/"]
+        end
+    end
+    
+    subgraph "Development"
+        direction TB
+        DevClean["Clean Preview"] --> DevBuild["Dev Build"]
+        DevBuild --> DevServe["Development Server"]
+        
+        subgraph "Watchers"
+            direction TB
+            HTMLW["HTML Watch"]
+            JSW["JS Watch"]
+            CSSW["CSS Watch"]
+        end
+        
+        DevServe --> Watchers
+    end
+    
+    classDef phase fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    classDef task fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    classDef deploy fill:#f1f8e9,stroke:#33691e,stroke-width:2px,color:#000
+    
+    class Clean,Parallel,Deploy phase
+    class HTML,JS,SW,CSS,IMG,JSON,DevClean,DevBuild,DevServe task
+    class Dist,Docs deploy
+```
+
+```mermaid
 graph TD
-    subgraph Local["Local Development"]
+    subgraph Local["Custom CI/CD Pipeline"]
         direction TB
         Source["Source Code<br/><i>main branch</i>"]
         Build["Build Process<br/><code>npm run compile</code>"]
