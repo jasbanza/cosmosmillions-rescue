@@ -3,8 +3,8 @@
 #### 👉 **[click here to use the dApp](https://jasbanza.github.io/cosmosmillions-rescue/)**
 _📌 don't forget to bookmark!_
 ### Features:
-- Pull list of open orders
-- Cancel specific order
+- Pull list of connected wallet's deposits
+- Withdraw specific deposits
 - ✅ Keplr
 - ✅ Ledger
 ## Custom Hosting:
