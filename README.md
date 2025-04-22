@@ -1,5 +1,5 @@
 # cosmosmillions-rescue
-#### dApp to withdraw from cosmosmillions on lum network - https://pro.osmosis.zone/
+#### dApp to withdraw from cosmosmillions on lum network
 #### 👉 **[click here to use the dApp](https://jasbanza.github.io/cosmosmillions-rescue/)**
 _📌 don't forget to bookmark!_
 ### Features:
