@@ -215,6 +215,12 @@ function useConnectedWalletAddress() {
     const connectedWalletAddress = document.getElementById("connectedWalletAddress").textContent.trim();
 
     document.getElementById("searchWalletAddress").value = connectedWalletAddress;
+
+    // update url's search params for walletAddress:
+    const url = new URL(window.location.href);
+    url.searchParams.set("walletAddress", connectedWalletAddress);
+    window.history.replaceState({}, '', url); // update the URL without reloading
+    
 }
 
 
