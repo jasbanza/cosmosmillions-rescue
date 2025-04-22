@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cosmosmillions Rescue</title>
+    <script src="bundle.js"></script>
+    <link rel="stylesheet" href="styles/style.css" />
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cosmosmillions Rescue</h1>
+            <h3>
+                <a
+                    href="https://github.com/jasbanza/cosmosmillions-rescue"
+                    target="_blank"
+                >
+                    View on GitHub
+                </a>
+            </h3>
+        </header>
+
+        <!-- Wallet Connection Section -->
+        <div id="walletContainer" class="hidden container">
+            <!-- connected wallet -->
+            <div>Connected Wallet:</div>
+            <div id="connectedWalletAddress"></div>
+            <div id="btnDisconnect" class="button" onclick="btnDisconnectWallet()">
+                Disconnect Wallet
+            </div>
+        </div>
+
+        <div class="container">
+            <div id="btnConnect" class="button" onclick="btnConnectWallet()">
+                Connect Keplr
+            </div>
+        </div>
+
+        <!-- Address Input Section -->
+        <div class="input-section">
+            <input
+                type="text"
+                id="searchWalletAddress"
+                placeholder="Enter Lum address (lum1...)"
+                class="address-input"
+            />
+            <button onclick="useConnectedWalletAddress()" class="action-button">
+                Use Connected Wallet
+            </button>
+            <button onclick="listDeposits()" class="action-button">
+                List Deposits
+            </button>
+        </div>
+
+        <!-- Global Deposits Table -->
+        <div class="table-container">
+            <h3>Global Pool Statistics</h3>
+            <table id="globalDepositsTable" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Pool ID</th>
+                        <th>Total Deposited</th>
+                        <th>Number of Deposits</th>
+                        <th>USD Value</th>
+                    </tr>
+                </thead>
+                <tbody id="globalDepositsBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Error Display -->
+        <p id="error" class="error-message"></p>
+
+        <!-- Error Container -->
+        <div id="errorContainer" class="console hidden">
+            Error:
+            <div id="divError"></div>
+        </div>
+
+        <!-- Deposits Table -->
+        <div class="table-container">
+            <h3>Your Deposit History</h3>
+            <table id="depositsTable" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Deposit ID</th>
+                        <th>Pool ID</th>
+                        <th>Amount</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="depositsBody"></tbody>
+            </table>
+        </div>
+
+        <!-- Response Container -->
+        <div id="responseContainer" class="console hidden">
+            Response:
+            <div id="divResponse"></div>
+        </div>
+
+        <!-- Loading Mask -->
+        <div id="loadingMask" class="loading-mask">
+            <div class="loading-spinner"></div>
+            <div id="loadingMessage" class="loading-message">
+                <p id="loadingProgress">Loading deposits...</p>
+                <p id="loadingContext">Please wait while we fetch your deposits...</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
