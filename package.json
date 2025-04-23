@@ -45,6 +45,9 @@
   },
   "homepage": "https://github.com/jasbanza/cosmosmillions-rescue#readme",
   "dependencies": {
+    "@cosmjs/encoding": "^0.33.1",
+    "@cosmjs/proto-signing": "^0.33.1",
+    "@lum-network/sdk-javascript": "^1.0.4",
     "big.js": "^7.0.0"
   },
   "devDependencies": {

@@ -1,18 +1,24 @@
-// Import Big.js
 import Big from 'big.js';
+import { encodePubkey, makeAuthInfoBytes, TxRaw, Registry } from "@cosmjs/proto-signing";
+import { toBase64, fromBase64 } from "@cosmjs/encoding";
+import { Any } from "cosmjs-types/google/protobuf/any";
+import { LumClient, MsgWithdrawDeposit } from "@lum-network/sdk-javascript";
 
 // Configure Big.js for high precision
-Big.DP = 50; // Set decimal places
-Big.RM = Big.roundHalfUp; // Rounding mode
+Big.DP = 50;
+Big.RM = Big.roundHalfUp;
 
 
 window.listDeposits = listDeposits;
 window.useConnectedWalletAddress = useConnectedWalletAddress;
 window.btnDisconnectWallet = btnDisconnectWallet;
 window.btnConnectWallet = btnConnectWallet;
+window.withdrawDeposit = withdrawDeposit;
 
 
 // Configuration
+const TEST = true; // Set to false for production
+const TEST_ADDRESS = "lum17mlfltjtmpnysh7lmkmzyp6urcuw74muh9egws"; // Test address for debugging
 const LCD_URL = "https://rest.cosmos.directory/lumnetwork";
 const RPC_URL = "https://rpc.cosmos.directory/lumnetwork";
 const CHAIN_ID = "lum-network-1";
@@ -43,6 +49,27 @@ const DENOMINATIONS = {
         decimals: 18
     }
 };
+
+// // Define Protobuf type for MsgWithdrawDeposit (Lum Millions module)
+// const MsgWithdrawDeposit = {
+//     typeUrl: "/lum.network.millions.MsgWithdrawDeposit",
+//     encode: (message) => {
+//         return Buffer.from(
+//             JSON.stringify({
+//                 depositorAddress: message.depositor_address,
+//                 poolId: message.pool_id,
+//                 depositId: message.deposit_id,
+//                 toAddress: message.to_address,
+//             })
+//         ); // Simplified encoding; ideally, use generated Protobuf types
+//     },
+//     fromJSON: (json) => ({
+//         depositor_address: json.depositorAddress,
+//         pool_id: json.poolId,
+//         deposit_id: json.depositId,
+//         to_address: json.toAddress,
+//     }),
+// };
 
 // Loading state management
 let isLoading = false;
@@ -220,7 +247,7 @@ function useConnectedWalletAddress() {
     const url = new URL(window.location.href);
     url.searchParams.set("walletAddress", connectedWalletAddress);
     window.history.replaceState({}, '', url); // update the URL without reloading
-    
+
 }
 
 
@@ -312,10 +339,10 @@ async function listDeposits() {
     try {
         showError("");
         toggleLoading(true, "Fetching global statistics...", "Please wait...");
-        
+
         // Then fetch user deposits
         const { userDeposits, allDeposits } = await fetchAllDeposits(address);
-        
+
         // Process pool statistics
         const poolStats = allDeposits.reduce((stats, deposit) => {
             const poolId = deposit.pool_id;
@@ -468,117 +495,152 @@ function formatAmountByDenom(amount) {
 // Withdraw a deposit
 async function withdrawDeposit(depositor, poolId, depositId) {
     if (isLoading) return;
-
+  
     try {
-        showError("");
-        toggleLoading(true, "Preparing withdrawal...", "Please confirm the transaction in your wallet");
-
-        // Ensure Keplr is available
-        if (!window.keplr) {
-            showError("Keplr wallet not detected. Please install Keplr extension.");
-            return;
-        }
-
-        // Enable Keplr for Lum Network
-        await window.keplr.enable(CHAIN_ID);
-        const offlineSigner = window.keplr.getOfflineSigner(CHAIN_ID);
-        const accounts = await offlineSigner.getAccounts();
-
-        if (accounts[0].address !== depositor) {
-            showError("Keplr address does not match provided address.");
-            return;
-        }
-
-        // Get account details
-        const accountResponse = await fetch(
-            `${LCD_URL}/cosmos/auth/v1beta1/accounts/${depositor}`
-        );
-        const accountData = await accountResponse.json();
-        const account = accountData.account;
-        const sequence = account.sequence;
-        const accountNumber = account.account_number;
-
-        // Construct MsgWithdrawDeposit
-        const msg = {
-            type: "lum-network/millions/MsgWithdrawDeposit",
-            value: {
-                depositor_address: depositor,
-                pool_id: poolId,
-                deposit_id: depositId,
+      showError("");
+      toggleLoading(true, "Preparing withdrawal...", "Please confirm the transaction in your wallet");
+  
+      // Ensure Keplr is available
+      if (!window.keplr) {
+        showError("Keplr wallet not detected. Please install Keplr extension.");
+        return;
+      }
+  
+      // Enable Keplr for Lum Network
+      await window.keplr.enable(CHAIN_ID);
+      const offlineSigner = window.keplr.getOfflineSigner(CHAIN_ID);
+      const accounts = await offlineSigner.getAccounts();
+  
+      if (TEST) {
+        depositor = TEST_ADDRESS;
+      }
+  
+      if (accounts[0].address !== depositor) {
+        showError("Keplr address does not match provided address.");
+        return;
+      }
+  
+      // Get account details
+      const accountResponse = await fetch(
+        `${LCD_URL}/cosmos/auth/v1beta1/accounts/${depositor}`
+      );
+      const accountData = await accountResponse.json();
+      const account = accountData.account;
+      const sequence = account.sequence;
+      const accountNumber = account.account_number;
+  
+      // Construct Amino MsgWithdrawDeposit
+      const msg = {
+        type: "lum-network/millions/MsgWithdrawDeposit",
+        value: {
+          depositor_address: depositor,
+          pool_id: poolId,
+          deposit_id: depositId,
+          to_address: depositor,
+        },
+      };
+  
+      // Fee
+      const fee = {
+        amount: [
+          {
+            denom: DENOM,
+            amount: "5000", // 0.005 ulum to avoid mempool rejection
+          },
+        ],
+        gas: GAS_LIMIT.toString(),
+      };
+  
+      // Create Amino SignDoc
+      const signDoc = {
+        chain_id: CHAIN_ID,
+        account_number: accountNumber.toString(),
+        sequence: sequence.toString(),
+        fee,
+        msgs: [msg],
+        memo: "Withdrawal initiated from https://jasbanza.github.io/cosmosmillions-rescue/",
+      };
+  
+      // Sign with Amino
+      const signed = await window.keplr.signAmino(CHAIN_ID, depositor, signDoc);
+  
+      // Use lum-network-sdk's MsgWithdrawDeposit for Protobuf encoding
+      const msgProto = MsgWithdrawDeposit.fromJSON({
+        depositorAddress: depositor,
+        poolId,
+        depositId,
+        toAddress: depositor,
+      });
+  
+      // Encode TxBody using Registry
+      const registry = new Registry([[MsgWithdrawDeposit.typeUrl, MsgWithdrawDeposit]]);
+      const bodyBytes = registry.encode({
+        typeUrl: "/cosmos.tx.v1beta1.TxBody",
+        value: {
+          messages: [
+            {
+              typeUrl: MsgWithdrawDeposit.typeUrl,
+              value: msgProto,
             },
-        };
-
-        // Fee
-        const fee = {
-            amount: [{
-                denom: DENOM,
-                amount: Math.ceil(GAS_LIMIT * parseFloat(GAS_PRICE)).toString(),
-            }],
-            gas: GAS_LIMIT.toString(),
-        };
-
-        // Sign transaction
-        const signDoc = {
-            body: {
-                messages: [msg],
-                memo: "",
-                timeout_height: "0",
-                extension_options: [],
-                non_critical_extension_options: [],
-            },
-            auth_info: {
-                signer_infos: [{
-                    public_key: {
-                        type: "tendermint/PubKeySecp256k1",
-                        key: accounts[0].pubkey,
-                    },
-                    mode_info: { single: { mode: "SIGN_MODE_DIRECT" } },
-                    sequence: sequence.toString(),
-                }],
-                fee,
-            },
-            chain_id: CHAIN_ID,
-            account_number: accountNumber.toString(),
-        };
-
-        const signed = await window.keplr.signDirect(CHAIN_ID, depositor, {
-            bodyBytes: serializeBody(signDoc.body),
-            authInfoBytes: serializeAuthInfo(signDoc.auth_info),
-            chainId: CHAIN_ID,
-            accountNumber: accountNumber,
-        });
-
-        // Construct transaction
-        const tx = {
-            signatures: [signed.signature.signature],
-            body: signed.signed.body,
-            auth_info: signed.signed.auth_info,
-        };
-
-        // Broadcast transaction
-        const broadcastResponse = await fetch(`${RPC_URL}/txs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                tx,
-                mode: "BROADCAST_MODE_BLOCK",
-            }),
-        });
-
-        const broadcastResult = await broadcastResponse.json();
-
-        if (broadcastResult.result?.code !== 0) {
-            throw new Error(broadcastResult.result?.raw_log || "Transaction failed");
-        }
-
-        alert(`Withdrawal successful! Tx Hash: ${broadcastResult.result.txhash}`);
-        listDeposits(); // Refresh deposit list
+          ],
+          memo: signed.signed.memo,
+        },
+      });
+  
+      // Create AuthInfo
+      const pubkey = encodePubkey({
+        type: "tendermint/PubKeySecp256k1",
+        value: toBase64(accounts[0].pubkey),
+      });
+      const feeProto = {
+        amount: fee.amount,
+        gasLimit: parseInt(fee.gas, 10),
+      };
+      const authInfoBytes = makeAuthInfoBytes(
+        [{ pubkey, sequence: parseInt(signed.signed.sequence, 10) }],
+        feeProto.amount,
+        feeProto.gasLimit,
+        undefined,
+        undefined
+      );
+  
+      // Create TxRaw
+      const txRaw = TxRaw.fromPartial({
+        bodyBytes,
+        authInfoBytes,
+        signatures: [fromBase64(signed.signature.signature)],
+      });
+      const txRawBytes = TxRaw.encode(txRaw).finish();
+      const txBase64 = toBase64(txRawBytes);
+  
+      // Broadcast via REST (preferred for lum-network-sdk)
+      const broadcastResponse = await fetch(`${RPC_URL}/cosmos/tx/v1beta1/txs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tx_bytes: txBase64,
+          mode: "BROADCAST_MODE_BLOCK",
+        }),
+      });
+  
+      const broadcastResult = await broadcastResponse.json();
+      console.log("Broadcast result:", JSON.stringify(broadcastResult, null, 2));
+  
+      if (broadcastResult.tx_response?.code !== 0) {
+        console.error("Transaction failed:", broadcastResult.tx_response.raw_log);
+        throw new Error(broadcastResult.tx_response.raw_log || "Transaction failed");
+      }
+  
+      alert(`Withdrawal successful! Tx Hash: ${broadcastResult.tx_response.txhash}`);
+      ui_showResponse(broadcastResult);
+      listDeposits(); // Refresh deposit list
     } catch (error) {
-        showError(`Error withdrawing deposit: ${error.message}`);
+      showError(`Error withdrawing deposit: ${error.message}`);
+      console.error("Full error:", error);
     } finally {
-        toggleLoading(false);
+      toggleLoading(false);
     }
-}
+  }
 
 // Helper to serialize transaction body
 function serializeBody(body) {
